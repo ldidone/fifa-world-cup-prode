@@ -1,0 +1,73 @@
+match_number,date,stage,group,team_a,team_b,venue
+1,2026-06-11,group,A,Mexico,South Africa,Mexico City
+2,2026-06-11,group,A,South Korea,Czech Republic,Guadalajara
+3,2026-06-12,group,B,Canada,Bosnia and Herzegovina,Toronto
+4,2026-06-12,group,D,United States,Paraguay,Los Angeles
+5,2026-06-13,group,B,Qatar,Switzerland,San Francisco
+6,2026-06-13,group,C,Brazil,Morocco,New York
+7,2026-06-13,group,C,Haiti,Scotland,Boston
+8,2026-06-13,group,D,Australia,Turkey,Vancouver
+9,2026-06-14,group,E,Germany,Curacao,Houston
+10,2026-06-14,group,F,Netherlands,Japan,Dallas
+11,2026-06-14,group,E,Ivory Coast,Ecuador,Philadelphia
+12,2026-06-14,group,F,Sweden,Tunisia,Monterrey
+13,2026-06-15,group,H,Spain,Cape Verde,Atlanta
+14,2026-06-15,group,G,Belgium,Egypt,Seattle
+15,2026-06-15,group,H,Saudi Arabia,Uruguay,Miami
+16,2026-06-15,group,G,Iran,New Zealand,Los Angeles
+17,2026-06-16,group,I,France,Senegal,New York
+18,2026-06-16,group,I,Iraq,Norway,Boston
+19,2026-06-16,group,J,Argentina,Algeria,Kansas City
+20,2026-06-16,group,J,Austria,Jordan,San Francisco
+21,2026-06-17,group,K,Portugal,DR Congo,Houston
+22,2026-06-17,group,L,England,Croatia,Dallas
+23,2026-06-17,group,L,Ghana,Panama,Toronto
+24,2026-06-17,group,K,Uzbekistan,Colombia,Mexico City
+25,2026-06-18,group,A,Czech Republic,South Africa,Atlanta
+26,2026-06-18,group,B,Switzerland,Bosnia and Herzegovina,Los Angeles
+27,2026-06-18,group,B,Canada,Qatar,Vancouver
+28,2026-06-18,group,A,Mexico,South Korea,Guadalajara
+29,2026-06-19,group,D,United States,Australia,Seattle
+30,2026-06-19,group,C,Scotland,Morocco,Boston
+31,2026-06-19,group,C,Brazil,Haiti,Philadelphia
+32,2026-06-19,group,D,Turkey,Paraguay,San Francisco
+33,2026-06-20,group,F,Netherlands,Sweden,Houston
+34,2026-06-20,group,E,Germany,Ivory Coast,Toronto
+35,2026-06-20,group,E,Ecuador,Curacao,Kansas City
+36,2026-06-20,group,F,Tunisia,Japan,Monterrey
+37,2026-06-21,group,H,Spain,Saudi Arabia,Atlanta
+38,2026-06-21,group,G,Belgium,Iran,Los Angeles
+39,2026-06-21,group,H,Uruguay,Cape Verde,Miami
+40,2026-06-21,group,G,New Zealand,Egypt,Vancouver
+41,2026-06-22,group,J,Argentina,Austria,Dallas
+42,2026-06-22,group,I,France,Iraq,Philadelphia
+43,2026-06-22,group,I,Norway,Senegal,New York
+44,2026-06-22,group,J,Jordan,Algeria,San Francisco
+45,2026-06-23,group,K,Portugal,Uzbekistan,Houston
+46,2026-06-23,group,L,England,Ghana,Boston
+47,2026-06-23,group,L,Panama,Croatia,Toronto
+48,2026-06-23,group,K,Colombia,DR Congo,Guadalajara
+49,2026-06-24,group,B,Switzerland,Canada,Vancouver
+50,2026-06-24,group,B,Bosnia and Herzegovina,Qatar,Seattle
+51,2026-06-24,group,C,Scotland,Brazil,Miami
+52,2026-06-24,group,C,Morocco,Haiti,Atlanta
+53,2026-06-24,group,A,Czech Republic,Mexico,Mexico City
+54,2026-06-24,group,A,South Africa,South Korea,Monterrey
+55,2026-06-25,group,E,Curacao,Ivory Coast,Philadelphia
+56,2026-06-25,group,E,Ecuador,Germany,New York
+57,2026-06-25,group,F,Japan,Sweden,Dallas
+58,2026-06-25,group,F,Tunisia,Netherlands,Kansas City
+59,2026-06-25,group,D,Turkey,United States,Los Angeles
+60,2026-06-25,group,D,Paraguay,Australia,San Francisco
+61,2026-06-26,group,I,Norway,France,Boston
+62,2026-06-26,group,I,Senegal,Iraq,Toronto
+63,2026-06-26,group,H,Cape Verde,Saudi Arabia,Houston
+64,2026-06-26,group,H,Uruguay,Spain,Guadalajara
+65,2026-06-26,group,G,Egypt,Iran,Seattle
+66,2026-06-26,group,G,New Zealand,Belgium,Vancouver
+67,2026-06-27,group,L,Panama,England,New York
+68,2026-06-27,group,L,Croatia,Ghana,Philadelphia
+69,2026-06-27,group,K,Colombia,Portugal,Miami
+70,2026-06-27,group,K,DR Congo,Uzbekistan,Atlanta
+71,2026-06-27,group,J,Algeria,Austria,Kansas City
+72,2026-06-27,group,J,Jordan,Argentina,Dallas

@@ -1,0 +1,4 @@
+,pred_team_a_win,pred_draw,pred_team_b_win
+true_team_a_win,57,13,31
+true_draw,24,10,23
+true_team_b_win,31,17,50
