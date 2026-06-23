@@ -18,7 +18,9 @@ pip install -r requirements.txt
 python scripts/run_pipeline.py          # ~2 min on a laptop
 ```
 
-Key outputs:
+Running the pipeline **generates** the following artifacts. The ones under
+`data/processed/` and `models/` are gitignored and **not committed** to this
+repo — clone it and run the pipeline to produce them locally:
 
 | File | Description |
 |---|---|
@@ -39,7 +41,7 @@ python scripts/evaluate_2026.py   # scores predictions vs data/raw/results_2026.
 ```
 ├── data/
 │   ├── raw/              # jfjelstul/worldcup CSVs + 2026 fixture + eloratings.csv
-│   └── processed/        # modeling dataset, predictions, simulation results
+│   └── processed/        # generated outputs (gitignored): modeling dataset, predictions, simulation
 ├── notebooks/
 │   ├── 01_data_exploration_eda.ipynb      # data inspection & EDA
 │   ├── 02_modeling_and_predictions.ipynb  # models, validation, 2026 forecast (final)
@@ -59,7 +61,7 @@ python scripts/evaluate_2026.py   # scores predictions vs data/raw/results_2026.
 │   ├── run_pipeline.py         # headless end-to-end pipeline
 │   ├── evaluate_2026.py        # test predictions vs actual 2026 results
 │   └── inspect_data.py         # one-off data inspection
-├── models/               # serialised model artifacts (.joblib)
+├── models/               # serialised model artifacts (.joblib) — gitignored
 ├── reports/              # CSV metrics + figures/
 │   └── figures/          # PNGs from notebooks
 └── requirements.txt
