@@ -6,5 +6,3 @@ __pycache__/
 .ipynb_checkpoints/
 *.joblib
 .DS_Store
-
-data/processed/
