@@ -71,12 +71,61 @@ def build_models() -> dict[str, object]:
     return models
 
 
-def fit_model(model, train_df: pd.DataFrame):
-    """Fit a model on a modeling dataframe (selecting features + target)."""
+def recency_weights(years, halflife_years: float | None,
+                    reference_year: float | None = None) -> np.ndarray | None:
+    """Exponential-decay sample weights based on match year.
+
+    A match ``halflife_years`` older than ``reference_year`` (default: the most
+    recent year in the data) gets half the weight of a current match. Returns
+    ``None`` when ``halflife_years`` is ``None`` (i.e. equal weighting).
+    """
+    if halflife_years is None:
+        return None
+    years = np.asarray(years, dtype=float)
+    ref = float(years.max()) if reference_year is None else float(reference_year)
+    age = ref - years
+    return np.power(0.5, age / float(halflife_years))
+
+
+def fit_model(model, train_df: pd.DataFrame,
+              recency_halflife: float | None = "default"):
+    """Fit a model on a modeling dataframe (selecting features + target).
+
+    Parameters
+    ----------
+    recency_halflife:
+        * ``"default"`` (the sentinel) → use ``config.RECENCY_HALFLIFE_YEARS``.
+        * a number → exponential half-life in years for sample weighting.
+        * ``None`` → equal weights (no recency weighting).
+
+    Sample weights are passed only to estimators that support them. For a
+    scikit-learn ``Pipeline`` the weight is routed to the final ``clf`` step.
+    """
     X = features.get_feature_matrix(train_df)
     y = train_df["target"].to_numpy()
-    model.fit(X, y)
+
+    if recency_halflife == "default":
+        recency_halflife = config.RECENCY_HALFLIFE_YEARS
+    weights = recency_weights(train_df["year"].to_numpy(), recency_halflife)
+
+    if weights is None or not _supports_sample_weight(model):
+        model.fit(X, y)
+    elif isinstance(model, Pipeline):
+        model.fit(X, y, clf__sample_weight=weights)
+    else:
+        model.fit(X, y, sample_weight=weights)
     return model
+
+
+def _supports_sample_weight(model) -> bool:
+    """Whether ``model`` (or a Pipeline's final step) accepts sample_weight."""
+    import inspect
+
+    est = model.steps[-1][1] if isinstance(model, Pipeline) else model
+    try:
+        return "sample_weight" in inspect.signature(est.fit).parameters
+    except (ValueError, TypeError):
+        return False
 
 
 def predict_proba(model, df: pd.DataFrame) -> np.ndarray:

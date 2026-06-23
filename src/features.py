@@ -26,6 +26,7 @@ import numpy as np
 import pandas as pd
 
 from . import config, data, elo
+from .external_elo import ExternalElo, load_external_elo
 
 
 # --------------------------------------------------------------------------- #
@@ -85,6 +86,7 @@ class _TeamState:
 # --------------------------------------------------------------------------- #
 def build_team_match_features(
     matches: pd.DataFrame, form_window: int = config.FORM_WINDOW,
+    ext_elo: ExternalElo | None = None,
     **elo_kwargs,
 ) -> pd.DataFrame:
     """Attach pre-match features for both listed sides of every match.
@@ -92,7 +94,16 @@ def build_team_match_features(
     Returns a copy of ``matches`` with ``home_*`` / ``away_*`` pre-match
     feature columns plus head-to-head and host context. Still in listing-order
     space (symmetrization happens later).
+
+    ``ext_elo`` (defaults to the bundled eloratings.net history) supplies a
+    leakage-free external Elo for each side, read strictly *before* the match
+    date. Pass ``ext_elo=False`` to disable.
     """
+    if ext_elo is None:
+        ext_elo = load_external_elo()
+    elif ext_elo is False:
+        ext_elo = None
+
     m = elo.compute_pre_match_elo(matches, **elo_kwargs)
 
     states: dict[str, _TeamState] = defaultdict(lambda: _TeamState(form_window))
@@ -135,6 +146,13 @@ def build_team_match_features(
         host_set = hosts.get(int(row.year), set())
         cols["home_is_host"].append(int(row.home_team_name in host_set))
         cols["away_is_host"].append(int(row.away_team_name in host_set))
+
+        # --- external Elo (leakage-free: strictly before match date) ------- #
+        if ext_elo is not None:
+            cols["home_ext_elo"].append(
+                ext_elo.rating_asof(row.home_team_name, row.match_date))
+            cols["away_ext_elo"].append(
+                ext_elo.rating_asof(row.away_team_name, row.match_date))
 
         # --- advance state with realised result --------------------------- #
         gh, ga_ = int(row.home_team_score), int(row.away_team_score)
@@ -222,6 +240,7 @@ def build_modeling_dataset(
 
     feat = build_team_match_features(matches, form_window=form_window, **elo_kwargs)
     feat = _attach_confederation(feat)
+    has_ext = "home_ext_elo" in feat.columns
 
     rng = np.random.default_rng(seed)
     swap = rng.random(len(feat)) < 0.5  # True -> away listed side becomes team_a
@@ -265,6 +284,8 @@ def build_modeling_dataset(
 
         # antisymmetric difference features
         rec["elo_diff"] = g(a, "elo_pre") - g(b, "elo_pre")
+        if has_ext:
+            rec["ext_elo_diff"] = _safe_sub(g(a, "ext_elo"), g(b, "ext_elo"))
         rec["matches_played_diff"] = g(a, "matches_played") - g(b, "matches_played")
         rec["win_rate_diff"] = _safe_sub(g(a, "win_rate"), g(b, "win_rate"))
         rec["gf_avg_diff"] = _safe_sub(g(a, "gf_avg"), g(b, "gf_avg"))
@@ -311,6 +332,7 @@ def _safe_sub(x, y):
 # --------------------------------------------------------------------------- #
 FEATURE_COLUMNS = [
     "elo_diff",
+    "ext_elo_diff",
     "matches_played_diff",
     "win_rate_diff",
     "gf_avg_diff",
@@ -332,7 +354,9 @@ def get_feature_matrix(df: pd.DataFrame) -> pd.DataFrame:
     For difference/rate features a missing value means "no prior history",
     which is most naturally encoded as 0 (no known edge either way).
     """
-    X = df[FEATURE_COLUMNS].copy()
+    # reindex so the matrix always has every model feature, even if a source
+    # (e.g. external Elo) was disabled for a given build.
+    X = df.reindex(columns=FEATURE_COLUMNS)
     return X.fillna(0.0)
 
 
@@ -348,20 +372,37 @@ class HistoryState:
     consistently with the training-time feature definitions.
     """
 
-    def __init__(self, ratings, states, h2h, conf):
+    def __init__(self, ratings, states, h2h, conf, ext_ratings=None):
         self.ratings = ratings
         self.states = states
         self.h2h = h2h
         self.conf = conf
+        # team_id -> external Elo as of the prediction cutoff (None if unknown)
+        self.ext_ratings = ext_ratings or {}
 
     def rating(self, team_id: str) -> float:
         return self.ratings.get(team_id, config.ELO_BASE)
 
+    def ext_rating(self, team_id: str):
+        return self.ext_ratings.get(team_id)
+
 
 def fit_history(matches: pd.DataFrame,
                 form_window: int = config.FORM_WINDOW,
+                ext_elo: ExternalElo | None = None,
+                ext_cutoff=None,
                 **elo_kwargs) -> HistoryState:
-    """Walk all matches once and return the final accumulated state."""
+    """Walk all matches once and return the final accumulated state.
+
+    ``ext_elo`` (defaults to the bundled history) provides each team's external
+    Elo as of ``ext_cutoff`` (default: latest available snapshot), used as a
+    leakage-free strength prior for forecasting. Pass ``ext_elo=False`` to skip.
+    """
+    if ext_elo is None:
+        ext_elo = load_external_elo()
+    elif ext_elo is False:
+        ext_elo = None
+
     eng = elo.EloEngine(**elo_kwargs)
     states: dict[str, _TeamState] = defaultdict(lambda: _TeamState(form_window))
     h2h: dict[tuple[str, str], list[int]] = defaultdict(lambda: [0, 0, 0, 0, 0])
@@ -385,9 +426,19 @@ def fit_history(matches: pd.DataFrame,
         else:
             rec_aw[0] += 1
 
-    conf = dict(zip(data.load_teams()["team_id"],
-                    data.load_teams()["confederation_code"]))
-    return HistoryState(dict(eng.ratings), dict(states), dict(h2h), conf)
+    teams = data.load_teams()
+    conf = dict(zip(teams["team_id"], teams["confederation_code"]))
+
+    ext_ratings: dict[str, float] = {}
+    if ext_elo is not None:
+        id_to_name = dict(zip(teams["team_id"], teams["team_name"]))
+        for tid, name in id_to_name.items():
+            r = ext_elo.latest_rating(name, ext_cutoff)
+            if r is not None:
+                ext_ratings[tid] = r
+
+    return HistoryState(dict(eng.ratings), dict(states), dict(h2h), conf,
+                        ext_ratings)
 
 
 def match_feature_row(hist: HistoryState, a_id: str, b_id: str,
@@ -425,6 +476,7 @@ def match_feature_row(hist: HistoryState, a_id: str, b_id: str,
         "team_b_gf_avg": b_gf, "team_b_ga_avg": b_ga,
         "knockout_stage": int(knockout),
         "elo_diff": ea - eb,
+        "ext_elo_diff": _safe_sub(hist.ext_rating(a_id), hist.ext_rating(b_id)),
         "matches_played_diff": a_mp - b_mp,
         "win_rate_diff": _safe_sub(a_wr, b_wr),
         "gf_avg_diff": _safe_sub(a_gf, b_gf),

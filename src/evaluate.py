@@ -49,6 +49,38 @@ def compute_metrics(y_true: np.ndarray, proba: np.ndarray) -> dict[str, float]:
     }
 
 
+def evaluate_against_actual(preds: pd.DataFrame,
+                            results: pd.DataFrame) -> tuple[dict, pd.DataFrame]:
+    """Score pre-tournament predictions against actual played results.
+
+    Both frames are joined on ``match_number``. ``preds`` must contain
+    ``p_team_a_win`` / ``p_draw`` / ``p_team_b_win`` in the same team_a/team_b
+    orientation as ``results`` (which holds ``score_a`` / ``score_b``).
+
+    Returns (metrics dict, per-match detail dataframe). Only matches present in
+    both frames (i.e. already played) are scored.
+    """
+    merged = preds.merge(
+        results[["match_number", "score_a", "score_b"]],
+        on="match_number", how="inner",
+    )
+    if merged.empty:
+        return {}, merged
+
+    actual = np.where(merged["score_a"] > merged["score_b"], 0,
+                      np.where(merged["score_a"] == merged["score_b"], 1, 2))
+    proba = merged[["p_team_a_win", "p_draw", "p_team_b_win"]].to_numpy()
+
+    merged = merged.copy()
+    merged["actual_outcome"] = [config.INT_TO_OUTCOME[i] for i in actual]
+    merged["predicted_outcome"] = [config.INT_TO_OUTCOME[i] for i in proba.argmax(1)]
+    merged["correct"] = merged["actual_outcome"] == merged["predicted_outcome"]
+    merged["p_assigned_to_actual"] = proba[np.arange(len(actual)), actual].round(4)
+
+    metrics = compute_metrics(actual, proba)
+    return metrics, merged
+
+
 def confusion(y_true: np.ndarray, proba: np.ndarray) -> pd.DataFrame:
     cm = confusion_matrix(y_true, proba.argmax(axis=1), labels=[0, 1, 2])
     return pd.DataFrame(cm, index=[f"true_{c}" for c in config.OUTCOME_CLASSES],
@@ -63,6 +95,7 @@ def temporal_backtest(
     model_factory,
     test_years: list[int] | None = None,
     min_train_years: int = 4,
+    recency_halflife: float | None = "default",
 ) -> tuple[pd.DataFrame, pd.DataFrame]:
     """Walk-forward validation by tournament year.
 
@@ -102,7 +135,8 @@ def temporal_backtest(
         if len(test_df) == 0:
             continue
 
-        model = train.fit_model(model_factory(), train_df)
+        model = train.fit_model(model_factory(), train_df,
+                                recency_halflife=recency_halflife)
         proba = train.predict_proba(model, test_df)
         y_true = test_df["target"].to_numpy()
 
@@ -123,14 +157,16 @@ def temporal_backtest(
 
 
 def compare_models(
-    df: pd.DataFrame, test_years: list[int] | None = None
+    df: pd.DataFrame, test_years: list[int] | None = None,
+    recency_halflife: float | None = "default",
 ) -> pd.DataFrame:
     """Run the temporal backtest for every model and return pooled metrics."""
     results = []
     for name, _ in train.build_models().items():
         # rebuild a fresh estimator each fold via a factory closure
         factory = (lambda n=name: train.build_models()[n])
-        _, overall = temporal_backtest(df, factory, test_years=test_years)
+        _, overall = temporal_backtest(df, factory, test_years=test_years,
+                                       recency_halflife=recency_halflife)
         if not overall.empty:
             row = overall.iloc[0].to_dict()
             row["model"] = name

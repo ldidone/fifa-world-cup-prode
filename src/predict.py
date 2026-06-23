@@ -61,21 +61,76 @@ def resolve_team_ids(names: list[str]) -> tuple[dict[str, str], list[str]]:
 # --------------------------------------------------------------------------- #
 # Fit
 # --------------------------------------------------------------------------- #
-def fit_full(model_name: str = "hist_gradient_boosting"):
+def fit_full(model_name: str = "random_forest",
+             recency_halflife: float | None = "default"):
     """Fit the outcome classifier + Poisson model on all historical data.
 
-    Returns (clf, poisson_model, history_state).
+    ``recency_halflife`` is forwarded to :func:`train.fit_model` (``"default"``
+    uses ``config.RECENCY_HALFLIFE_YEARS``; ``None`` disables recency weighting).
+
+    Returns (clf, poisson_model, history_state, clf_name).
     """
     matches = data.load_men_matches()
     model_df = features.build_modeling_dataset(matches)
 
     models = train.build_models()
-    clf_name = model_name if model_name in models else "logistic_regression"
-    clf = train.fit_model(models[clf_name], model_df)
+    clf_name = model_name if model_name in models else "random_forest"
+    clf = train.fit_model(models[clf_name], model_df,
+                          recency_halflife=recency_halflife)
 
     pois = poisson.PoissonGoalModel().fit(model_df)
     hist = features.fit_history(matches)
     return clf, pois, hist, clf_name
+
+
+def results_2026_as_matches(path=None) -> pd.DataFrame:
+    """Load played 2026 results into the historical ``matches`` schema.
+
+    Lets the played group games be appended to history so that Elo / team-form
+    features can be refreshed before predicting the remaining fixtures.
+    Debutant teams (not in the dataset) receive synthetic ``NEW-<name>`` ids,
+    which the feature engine treats as base-rated newcomers.
+    """
+    path = path or config.RESULTS_2026_PATH
+    res = pd.read_csv(path)
+    name2id, _ = resolve_team_ids(sorted(set(res["team_a"]) | set(res["team_b"])))
+    rows = []
+    for r in res.itertuples(index=False):
+        rows.append({
+            "tournament_id": "WC-2026",
+            "tournament_name": "2026 FIFA Men's World Cup",
+            "year": 2026,
+            "match_id": f"M-2026-{int(r.match_number):02d}",
+            "match_name": f"{r.team_a} vs {r.team_b}",
+            "stage_name": "group stage",
+            "group_name": getattr(r, "group", None),
+            "group_stage": 1,
+            "knockout_stage": 0,
+            "match_date": pd.to_datetime(r.date),
+            "home_team_id": name2id[r.team_a],
+            "home_team_name": r.team_a,
+            "away_team_id": name2id[r.team_b],
+            "away_team_name": r.team_b,
+            "home_team_score": int(r.score_a),
+            "away_team_score": int(r.score_b),
+            "extra_time": 0,
+            "penalty_shootout": 0,
+            "result": "n/a",
+        })
+    return pd.DataFrame(rows)
+
+
+def fit_history_with_played(path=None) -> features.HistoryState:
+    """History state that also incorporates the played 2026 results.
+
+    Use this to predict the *remaining* 2026 fixtures with up-to-date ratings.
+    Do NOT use it to score already-played matches (that would be leakage).
+    """
+    matches = data.load_men_matches()
+    played = results_2026_as_matches(path)
+    combined = pd.concat([matches, played], ignore_index=True)
+    combined = combined.sort_values(["match_date", "match_id"]).reset_index(drop=True)
+    return features.fit_history(combined)
 
 
 # --------------------------------------------------------------------------- #

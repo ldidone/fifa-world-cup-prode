@@ -26,6 +26,10 @@ for _d in (PROCESSED_DIR, MODELS_DIR, REPORTS_DIR, FIGURES_DIR):
 # 2026 fixture lives in raw (hand-built from the official FIFA schedule).
 FIXTURE_2026_PATH = RAW_DIR / "fixtures_2026.csv"
 
+# External World Football Elo history (eloratings.net): updated across all
+# international football, used for leakage-free as-of strength features.
+ELO_RATINGS_PATH = RAW_DIR / "eloratings.csv"
+
 # --------------------------------------------------------------------------- #
 # Target encoding (from team_a's perspective)
 # --------------------------------------------------------------------------- #
@@ -53,6 +57,20 @@ FORM_WINDOW = 5            # number of most-recent matches used for "recent form
 
 # Reproducibility
 RANDOM_SEED = 42
+
+# --------------------------------------------------------------------------- #
+# Recency weighting
+# --------------------------------------------------------------------------- #
+# Older World Cups are less representative of the modern game. During training
+# we can down-weight old matches with an exponential decay on the match year.
+# The half-life (in years) controls how fast influence decays: a match
+# HALF-LIFE years older than the most recent one counts half as much.
+# Set RECENCY_HALFLIFE_YEARS = None to disable (equal weights).
+RECENCY_HALFLIFE_YEARS = 16.0
+
+# 2026 actual results (played matches), used to (a) backtest the pre-tournament
+# predictions and (b) refresh Elo for the remaining fixtures.
+RESULTS_2026_PATH = RAW_DIR / "results_2026.csv"
 
 # --------------------------------------------------------------------------- #
 # Validation
